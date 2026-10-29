@@ -10,6 +10,10 @@ const cameraBtnLabel = document.getElementById('cameraBtnLabel');
 const flipCameraBtn = document.getElementById('flipCameraBtn');
 const torchBtn = document.getElementById('torchBtn');
 
+const fullscreenBtn = document.getElementById('fullscreenBtn');
+const fsIconEnter = document.getElementById('fsIconEnter');
+const fsIconExit = document.getElementById('fsIconExit');
+
 const lockBtn = document.getElementById('lockBtn');
 const lockBtnLabel = document.getElementById('lockBtnLabel');
 const lockIconUnlocked = document.getElementById('lockIconUnlocked');
@@ -17,6 +21,8 @@ const lockIconLocked = document.getElementById('lockIconLocked');
 
 const cameraVideo = document.getElementById('cameraVideo');
 const cameraHint = document.getElementById('cameraHint');
+const sketchColorBar = document.getElementById('sketchColorBar');
+const colorDotButtons = Array.from(sketchColorBar.querySelectorAll('.color-dot'));
 const gestureHint = document.getElementById('gestureHint');
 const emptyState = document.getElementById('emptyState');
 const overlayLayer = document.getElementById('overlayLayer');
@@ -44,13 +50,25 @@ const opacityValue = document.getElementById('opacityValue');
 const ALLOWED_MIME_TYPES = new Set(['image/png', 'image/jpeg']);
 const ALLOWED_EXT_REGEX = /\.(png|jpe?g)$/i;
 const DEFAULT_CAMERA_OPACITY = 50;
-const DEFAULT_SKETCH_CAMERA_OPACITY = 85;
+const DEFAULT_SKETCH_CAMERA_OPACITY = 90;
 const DEFAULT_PREVIEW_OPACITY = 100;
-const DEFAULT_SKETCH_DETAIL = 55;
+const DEFAULT_SKETCH_DETAIL = 65;
 const MAX_SKETCH_DIM = 1400;
 const MIN_SCALE = 0.2;
 const MAX_SCALE = 6;
 const BUTTON_ZOOM_FACTOR = 1.2;
+
+const SKETCH_PALETTES = {
+  darkOnCamera: [15, 20, 30],
+  darkOnStage: [220, 226, 236],
+  blue: [14, 165, 233],
+  red: [239, 68, 68],
+  light: [248, 250, 252]
+};
+
+const canFullscreen = Boolean(
+  document.fullscreenEnabled || document.webkitFullscreenEnabled
+);
 
 let currentObjectUrl = null;
 let cameraStream = null;
@@ -60,6 +78,7 @@ let isTorchOn = false;
 let hasImage = false;
 let isSketchMode = false;
 let sketchDetail = DEFAULT_SKETCH_DETAIL;
+let sketchColorKey = 'dark';
 let sketchCache = null;
 let hasUserAdjustedOpacity = false;
 let isLocked = false;
@@ -92,6 +111,14 @@ function normalizeAngle(angle) {
   return normalized;
 }
 
+function updateSliderFill(sliderEl) {
+  const min = Number(sliderEl.min) || 0;
+  const max = Number(sliderEl.max) || 100;
+  const val = Number(sliderEl.value) || 0;
+  const pct = max > min ? ((val - min) / (max - min)) * 100 : 0;
+  sliderEl.style.setProperty('--slider-fill', `${clamp(pct, 0, 100)}%`);
+}
+
 function openFilePicker() {
   if (isLocked) {
     return;
@@ -114,6 +141,7 @@ function setOpacity(percent) {
   opacitySlider.value = String(clamped);
   opacityValue.textContent = `%${clamped}`;
   overlayLayer.style.opacity = String(clamped / 100);
+  updateSliderFill(opacitySlider);
 }
 
 function applyAutoOpacity() {
@@ -192,7 +220,14 @@ function toggleMirror() {
   applyTransform();
 }
 
-/* --- Çizgisel Eskiz (Sobel Kenar Çıkarma) Motoru --- */
+/* --- Gelişmiş Eskiz Motoru: Çift Çizgi Yapmayan + İnce Çizgileri Koruyan Hibrit Algoritma --- */
+function getEffectiveSketchRGB() {
+  if (sketchColorKey === 'dark') {
+    return cameraStream ? SKETCH_PALETTES.darkOnCamera : SKETCH_PALETTES.darkOnStage;
+  }
+  return SKETCH_PALETTES[sketchColorKey] || SKETCH_PALETTES.darkOnCamera;
+}
+
 function buildSketchCache() {
   if (!hasImage || !previewImage.naturalWidth || !previewImage.naturalHeight) {
     return null;
@@ -221,101 +256,105 @@ function buildSketchCache() {
     gray[i] = ((lum * alpha + 255 * (255 - alpha)) / 255) | 0;
   }
 
-  const edges = new Uint8Array(pixelCount);
+  const strokes = new Uint8Array(pixelCount);
 
-  if (w >= 3 && h >= 3) {
-    // JPEG gürültüsünü temizlemek için ayrılabilir 3x3 Gauss yumuşatma
-    const horiz = new Uint8Array(pixelCount);
+  if (w >= 4 && h >= 4) {
+    // 1) İntegral görüntü (Summed-Area Table): Kalın çizgilerin içini dolu tutar,
+    //    1 piksellik en ince kalem hatlarını bulanıklaştırmadan korur.
+    const stride = w + 1;
+    const sat = new Uint32Array(stride * (h + 1));
+
     for (let y = 0; y < h; y++) {
-      const row = y * w;
-      horiz[row] = (3 * gray[row] + gray[row + 1]) >> 2;
-      for (let x = 1; x < w - 1; x++) {
-        horiz[row + x] = (gray[row + x - 1] + (gray[row + x] << 1) + gray[row + x + 1]) >> 2;
-      }
-      horiz[row + w - 1] = (gray[row + w - 2] + 3 * gray[row + w - 1]) >> 2;
-    }
-
-    const blurred = new Uint8Array(pixelCount);
-    for (let x = 0; x < w; x++) {
-      blurred[x] = (3 * horiz[x] + horiz[w + x]) >> 2;
-      const lastRow = (h - 1) * w;
-      blurred[lastRow + x] = (horiz[lastRow - w + x] + 3 * horiz[lastRow + x]) >> 2;
-    }
-    for (let y = 1; y < h - 1; y++) {
-      const row = y * w;
+      let rowSum = 0;
+      const srcRow = y * w;
+      const prevRow = y * stride;
+      const currRow = (y + 1) * stride;
       for (let x = 0; x < w; x++) {
-        const idx = row + x;
-        blurred[idx] = (horiz[idx - w] + (horiz[idx] << 1) + horiz[idx + w]) >> 2;
+        rowSum += gray[srcRow + x];
+        sat[currRow + x + 1] = sat[prevRow + x + 1] + rowSum;
       }
     }
 
-    // 3x3 Sobel gradyan büyüklüğü ve otomatik kontrast için histogram
-    const MAX_MAG = 1445;
-    const rawMag = new Uint16Array(pixelCount);
-    const histogram = new Uint32Array(MAX_MAG + 1);
-    let innerCount = 0;
+    const radius = clamp(Math.round(Math.min(w, h) * 0.009), 4, 10);
+    const MAX_SCORE = 512;
+    const rawScore = new Uint16Array(pixelCount);
+    const histogram = new Uint32Array(MAX_SCORE + 1);
 
-    for (let y = 1; y < h - 1; y++) {
-      const rowAbove = (y - 1) * w;
+    for (let y = 0; y < h; y++) {
+      const y0 = Math.max(0, y - radius);
+      const y1 = Math.min(h - 1, y + radius);
+      const satTop = y0 * stride;
+      const satBot = (y1 + 1) * stride;
+      const boxH = y1 - y0 + 1;
+
+      const yPrev = y > 0 ? y - 1 : 0;
+      const yNext = y < h - 1 ? y + 1 : h - 1;
       const rowCurr = y * w;
-      const rowBelow = (y + 1) * w;
+      const rowPrev = yPrev * w;
+      const rowNext = yNext * w;
 
-      for (let x = 1; x < w - 1; x++) {
-        const tl = blurred[rowAbove + x - 1];
-        const tc = blurred[rowAbove + x];
-        const tr = blurred[rowAbove + x + 1];
-        const ml = blurred[rowCurr + x - 1];
-        const mr = blurred[rowCurr + x + 1];
-        const bl = blurred[rowBelow + x - 1];
-        const bc = blurred[rowBelow + x];
-        const br = blurred[rowBelow + x + 1];
+      for (let x = 0; x < w; x++) {
+        const x0 = Math.max(0, x - radius);
+        const x1 = Math.min(w - 1, x + radius);
+        const area = (x1 - x0 + 1) * boxH;
 
-        const gx = -tl - (ml << 1) - bl + tr + (mr << 1) + br;
-        const gy = -tl - (tc << 1) - tr + bl + (bc << 1) + br;
-        const mag = Math.min(MAX_MAG, Math.round(Math.hypot(gx, gy)));
+        const sum =
+          sat[satBot + x1 + 1] -
+          sat[satTop + x1 + 1] -
+          sat[satBot + x0] +
+          sat[satTop + x0];
 
-        rawMag[rowCurr + x] = mag;
-        histogram[mag]++;
-        innerCount++;
+        const localMean = sum / area;
+        const centerVal = gray[rowCurr + x];
+
+        // Bölgesel koyuluk farkı (çizgi içi dolu kalır, çift çizgi oluşmaz)
+        const darkLineStrength = Math.max(0, localMean - centerVal) * 2.2;
+
+        // Gerçek fotoğraflardaki yumuşak geçiş sınırları için ince gradyan desteği
+        const xPrev = x > 0 ? x - 1 : 0;
+        const xNext = x < w - 1 ? x + 1 : w - 1;
+        const gx = Math.abs(gray[rowCurr + xNext] - gray[rowCurr + xPrev]);
+        const gy = Math.abs(gray[rowNext + x] - gray[rowPrev + x]);
+        const fineEdgeStrength = (gx + gy) * 0.55;
+
+        const combined = Math.min(
+          MAX_SCORE,
+          Math.round(Math.max(darkLineStrength, fineEdgeStrength))
+        );
+
+        rawScore[rowCurr + x] = combined;
+        histogram[combined]++;
       }
     }
 
-    const targetRank = Math.floor(innerCount * 0.985);
+    const targetRank = Math.floor(pixelCount * 0.975);
     let cumulative = 0;
-    let p985 = 120;
-    for (let m = 0; m <= MAX_MAG; m++) {
-      cumulative += histogram[m];
+    let p975 = 90;
+    for (let s = 0; s <= MAX_SCORE; s++) {
+      cumulative += histogram[s];
       if (cumulative >= targetRank) {
-        p985 = m;
+        p975 = s;
         break;
       }
     }
 
-    const normDivisor = Math.max(45, p985);
+    const normDivisor = Math.max(36, p975);
     for (let i = 0; i < pixelCount; i++) {
-      const val = ((rawMag[i] * 255) / normDivisor) | 0;
-      edges[i] = val > 255 ? 255 : val;
+      const val = ((rawScore[i] * 255) / normDivisor) | 0;
+      strokes[i] = val > 255 ? 255 : val;
     }
   }
 
   sketchCanvas.width = w;
   sketchCanvas.height = h;
   const outputImageData = sketchCtx.createImageData(w, h);
-  const out = outputImageData.data;
-
-  // Koyu kurşun kalem rengi (RGB sabit, yalnızca Alpha kanalı güncellenecek)
-  for (let p = 0; p < out.length; p += 4) {
-    out[p] = 18;
-    out[p + 1] = 22;
-    out[p + 2] = 31;
-    out[p + 3] = 0;
-  }
 
   return {
     width: w,
     height: h,
-    edges,
-    outputImageData
+    strokes,
+    outputImageData,
+    appliedColorSig: ''
   };
 }
 
@@ -330,9 +369,24 @@ function renderSketch() {
     return;
   }
 
+  const [r, g, b] = getEffectiveSketchRGB();
+  const colorSig = `${r},${g},${b}`;
+  const { strokes, outputImageData } = sketchCache;
+  const out = outputImageData.data;
+
+  if (sketchCache.appliedColorSig !== colorSig) {
+    for (let p = 0; p < out.length; p += 4) {
+      out[p] = r;
+      out[p + 1] = g;
+      out[p + 2] = b;
+    }
+    sketchCache.appliedColorSig = colorSig;
+  }
+
   const t = clamp(sketchDetail, 5, 100) / 100;
-  const lowThreshold = Math.round(135 - t * 118);
-  const span = Math.max(18, Math.round(62 - t * 22));
+  const lowThreshold = Math.round(92 * Math.pow(1 - t, 1.35) + 3);
+  const span = Math.max(16, Math.round(54 - t * 34));
+  const gamma = 0.72 - t * 0.2;
   const lut = new Uint8Array(256);
 
   for (let s = 0; s < 256; s++) {
@@ -340,14 +394,12 @@ function renderSketch() {
       lut[s] = 0;
     } else {
       const norm = Math.min(1, (s - lowThreshold) / span);
-      lut[s] = Math.round(Math.pow(norm, 0.78) * 255);
+      lut[s] = Math.round(Math.pow(norm, gamma) * 255);
     }
   }
 
-  const { edges, outputImageData } = sketchCache;
-  const out = outputImageData.data;
-  for (let i = 0, p = 3; i < edges.length; i++, p += 4) {
-    out[p] = lut[edges[i]];
+  for (let i = 0, p = 3; i < strokes.length; i++, p += 4) {
+    out[p] = lut[strokes[i]];
   }
 
   sketchCtx.putImageData(outputImageData, 0, 0);
@@ -357,6 +409,22 @@ function setSketchDetail(value) {
   sketchDetail = clamp(Math.round(Number(value) || DEFAULT_SKETCH_DETAIL), 5, 100);
   sketchDetailSlider.value = String(sketchDetail);
   sketchDetailValue.textContent = `%${sketchDetail}`;
+  updateSliderFill(sketchDetailSlider);
+
+  if (isSketchMode && hasImage) {
+    renderSketch();
+  }
+}
+
+function setSketchColor(colorKey) {
+  if (! colorKey) {
+    return;
+  }
+  sketchColorKey = colorKey;
+  colorDotButtons.forEach((btn) => {
+    btn.classList.toggle('is-selected', btn.dataset.color === colorKey);
+  });
+
   if (isSketchMode && hasImage) {
     renderSketch();
   }
@@ -377,9 +445,49 @@ function toggleSketchMode() {
   syncStageVisibility();
 }
 
+/* --- Tam Ekran (Fullscreen) Desteği --- */
+function isCurrentlyFullscreen() {
+  return Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+}
+
+function syncFullscreenUI() {
+  if (!canFullscreen) {
+    fullscreenBtn.hidden = true;
+    return;
+  }
+  fullscreenBtn.hidden = false;
+  const active = isCurrentlyFullscreen();
+  fullscreenBtn.setAttribute('aria-pressed', String(active));
+  fsIconEnter.hidden = active;
+  fsIconExit.hidden = !active;
+}
+
+async function toggleFullscreen() {
+  if (!canFullscreen) {
+    return;
+  }
+  try {
+    if (!isCurrentlyFullscreen()) {
+      const rootEl = document.documentElement;
+      if (rootEl.requestFullscreen) {
+        await rootEl.requestFullscreen();
+      } else if (rootEl.webkitRequestFullscreen) {
+        rootEl.webkitRequestFullscreen();
+      }
+    } else if (document.exitFullscreen) {
+      await document.exitFullscreen();
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    }
+  } catch (_) {
+    // Yoksay
+  }
+  syncFullscreenUI();
+}
+
 /* --- Flaş / Kağıt Aydınlatma (Torch) --- */
 async function toggleTorch() {
-  if (!cameraStream || isCameraLoading || isLocked) {
+  if (!cameraStream || isCameraLoading) {
     return;
   }
   hideError();
@@ -487,7 +595,6 @@ function syncStageVisibility() {
   appRoot.classList.toggle('is-locked', isLocked);
   appRoot.classList.toggle('has-camera', isCameraActive);
   stage.classList.toggle('is-interactive', hasImage && !isLocked);
-  stage.classList.toggle('is-sketch-paper', hasImage && isSketchMode && !isCameraActive);
 
   emptyState.hidden = hasImage || isCameraActive;
   cameraHint.hidden = !isCameraActive || hasImage;
@@ -495,6 +602,7 @@ function syncStageVisibility() {
 
   previewImage.hidden = !hasImage || isSketchMode;
   sketchCanvas.hidden = !hasImage || !isSketchMode;
+  sketchColorBar.hidden = !hasImage || !isSketchMode || isLocked;
 
   sketchBtn.classList.toggle('is-active', isSketchMode);
   sketchBtn.setAttribute('aria-pressed', String(isSketchMode));
@@ -504,17 +612,18 @@ function syncStageVisibility() {
   lockBtn.hidden = !hasImage;
   lockBtn.classList.toggle('is-locked', isLocked);
   lockBtn.setAttribute('aria-pressed', String(isLocked));
-  lockBtnLabel.textContent = isLocked ? 'Kilidi Aç' : 'Kilitle';
+  lockBtnLabel.textContent = isLocked ? 'Kilitli • Aç' : 'Kilitle';
   lockIconUnlocked.hidden = isLocked;
   lockIconLocked.hidden = !isLocked;
 
   fileNameBadge.hidden = !hasImage || isLocked;
-  torchBtn.hidden = !isCameraActive || isLocked;
+  // Flaş kilit modundayken de açık kalır (çizim ortasında kağıdı aydınlatabilmek için)
+  torchBtn.hidden = !isCameraActive;
   torchBtn.classList.toggle('is-torch-active', isTorchOn);
   torchBtn.setAttribute('aria-pressed', String(isTorchOn));
   flipCameraBtn.hidden = !isCameraActive || isLocked;
+  syncFullscreenUI();
 
-  controlsFooter.hidden = isLocked;
   transformBar.hidden = !hasImage;
   opacityPanel.hidden = !hasImage;
   clearBtn.hidden = !hasImage;
@@ -619,6 +728,10 @@ function stopCamera() {
   cameraVideo.srcObject = null;
   cameraVideo.classList.remove('is-mirrored');
 
+  if (isSketchMode && hasImage) {
+    renderSketch();
+  }
+
   applyAutoOpacity();
   syncStageVisibility();
   syncWakeLock();
@@ -707,6 +820,11 @@ async function startCamera(facingMode = currentFacingMode) {
     }
 
     cameraVideo.srcObject = stream;
+
+    if (isSketchMode && hasImage) {
+      renderSketch();
+    }
+
     syncStageVisibility();
     syncWakeLock();
     await cameraVideo.play().catch(() => {});
@@ -724,6 +842,9 @@ async function startCamera(facingMode = currentFacingMode) {
 }
 
 function toggleCamera() {
+  if (isLocked) {
+    return;
+  }
   hideError();
   if (cameraStream) {
     stopCamera();
@@ -777,7 +898,7 @@ function captureTouchBaseline(touches) {
 stage.addEventListener(
   'touchstart',
   (event) => {
-    if (!hasImage || isLocked) {
+    if (!hasImage || isLocked || event.target.closest('.sketch-color-bar')) {
       return;
     }
     dismissGestureHint();
@@ -864,7 +985,7 @@ stage.addEventListener('touchcancel', handleTouchEnd, { passive: true });
 
 /* --- Masaüstü Fare & Tekerlek Desteği --- */
 stage.addEventListener('mousedown', (event) => {
-  if (!hasImage || isLocked || event.button !== 0) {
+  if (!hasImage || isLocked || event.button !== 0 || event.target.closest('.sketch-color-bar')) {
     return;
   }
   dismissGestureHint();
@@ -939,7 +1060,15 @@ clearBtn.addEventListener('click', clearPreview);
 cameraBtn.addEventListener('click', toggleCamera);
 flipCameraBtn.addEventListener('click', flipCamera);
 torchBtn.addEventListener('click', toggleTorch);
+fullscreenBtn.addEventListener('click', toggleFullscreen);
 sketchBtn.addEventListener('click', toggleSketchMode);
+
+colorDotButtons.forEach((btn) => {
+  btn.addEventListener('click', (event) => {
+    event.stopPropagation();
+    setSketchColor(btn.dataset.color);
+  });
+});
 
 lockBtn.addEventListener('click', () => {
   setLocked(!isLocked);
@@ -979,6 +1108,9 @@ opacitySlider.addEventListener('input', (event) => {
   setOpacity(event.target.value);
 });
 
+document.addEventListener('fullscreenchange', syncFullscreenUI);
+document.addEventListener('webkitfullscreenchange', syncFullscreenUI);
+
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     syncWakeLock();
@@ -990,3 +1122,8 @@ window.addEventListener('pagehide', () => {
     stopStreamTracks(cameraStream);
   }
 });
+
+// İlk yükleme durumu
+updateSliderFill(opacitySlider);
+updateSliderFill(sketchDetailSlider);
+syncStageVisibility();

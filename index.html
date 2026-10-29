@@ -50,6 +50,29 @@
 
         <button
           type="button"
+          id="fullscreenBtn"
+          class="icon-btn"
+          aria-pressed="false"
+          aria-label="Tam ekran modunu aç/kapat"
+          title="Tam Ekran"
+          hidden
+        >
+          <svg id="fsIconEnter" class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="15 3 21 3 21 9" />
+            <polyline points="9 21 3 21 3 15" />
+            <line x1="21" y1="3" x2="14" y2="10" />
+            <line x1="3" y1="21" x2="10" y2="14" />
+          </svg>
+          <svg id="fsIconExit" class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+            <polyline points="4 14 10 14 10 20" />
+            <polyline points="20 10 14 10 14 4" />
+            <line x1="14" y1="10" x2="21" y2="3" />
+            <line x1="3" y1="21" x2="10" y2="14" />
+          </svg>
+        </button>
+
+        <button
+          type="button"
           id="lockBtn"
           class="lock-btn"
           aria-pressed="false"
@@ -81,6 +104,22 @@
 
       <div id="cameraHint" class="camera-hint" hidden>
         Çizime başlamak için bir fotoğraf yükleyin
+      </div>
+
+      <div id="sketchColorBar" class="sketch-color-bar" role="group" aria-label="Eskiz çizgi rengi" hidden>
+        <span class="sketch-color-label">Çizgi:</span>
+        <button type="button" class="color-dot is-selected" data-color="dark" aria-label="Siyah çizgi" title="Siyah Çizgi">
+          <span class="color-swatch swatch-dark"></span>
+        </button>
+        <button type="button" class="color-dot" data-color="blue" aria-label="Mavi çizgi" title="Mavi Çizgi (Kalemle karışmaz)">
+          <span class="color-swatch swatch-blue"></span>
+        </button>
+        <button type="button" class="color-dot" data-color="red" aria-label="Kırmızı çizgi" title="Kırmızı Çizgi (Kalemle karışmaz)">
+          <span class="color-swatch swatch-red"></span>
+        </button>
+        <button type="button" class="color-dot" data-color="light" aria-label="Beyaz çizgi" title="Beyaz Çizgi (Koyu zemin için)">
+          <span class="color-swatch swatch-light"></span>
+        </button>
       </div>
 
       <div id="gestureHint" class="gesture-hint" hidden>
@@ -171,7 +210,7 @@
         <div class="opacity-panel" id="opacityPanel" hidden>
           <div class="slider-group">
             <div class="opacity-header">
-              <label for="opacitySlider" class="opacity-label">Saydamlık</label>
+              <label for="opacitySlider" class="opacity-label">Görünürlük</label>
               <output id="opacityValue" for="opacitySlider" class="opacity-value">%50</output>
             </div>
             <input
@@ -188,7 +227,7 @@
           <div class="slider-group slider-group-side" id="sketchDetailGroup" hidden>
             <div class="opacity-header">
               <label for="sketchDetailSlider" class="opacity-label">Çizgi Detayı</label>
-              <output id="sketchDetailValue" for="sketchDetailSlider" class="opacity-value">%55</output>
+              <output id="sketchDetailValue" for="sketchDetailSlider" class="opacity-value">%65</output>
             </div>
             <input
               type="range"
@@ -197,7 +236,7 @@
               min="5"
               max="100"
               step="1"
-              value="55"
+              value="65"
             >
           </div>
         </div>
