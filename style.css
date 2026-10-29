@@ -1,0 +1,577 @@
+:root {
+  --bg-app: #0d0f14;
+  --bg-stage: #151922;
+  --bg-surface: #1d222e;
+  --bg-surface-hover: #262c3a;
+  --border-subtle: #282e3d;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --accent: #6366f1;
+  --accent-hover: #4f46e5;
+  --torch-active: #eab308;
+  --torch-active-bg: rgba(234, 179, 8, 0.18);
+  --lock-active: #d97706;
+  --lock-active-hover: #b45309;
+  --camera-btn: #0f766e;
+  --camera-btn-hover: #0d9488;
+  --camera-active: #dc2626;
+  --camera-active-hover: #b91c1c;
+  --danger-text: #fca5a5;
+  --danger-bg: rgba(239, 68, 68, 0.14);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  height: 100%;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Üst Bar */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.7rem 1rem 0.4rem;
+  min-height: 48px;
+  flex-shrink: 0;
+}
+
+.logo {
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.file-badge {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  max-width: 110px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 400px) {
+  .app.has-camera .file-badge {
+    display: none;
+  }
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.icon-btn:hover {
+  background-color: var(--bg-surface-hover);
+}
+
+.icon-btn.is-torch-active {
+  background-color: var(--torch-active-bg);
+  border-color: var(--torch-active);
+  color: var(--torch-active);
+}
+
+.lock-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  height: 34px;
+  padding: 0 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.lock-btn:hover {
+  background-color: var(--bg-surface-hover);
+}
+
+.lock-btn.is-locked {
+  background-color: var(--lock-active);
+  border-color: var(--lock-active);
+  color: #ffffff;
+}
+
+.lock-btn.is-locked:hover {
+  background-color: var(--lock-active-hover);
+}
+
+.lock-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+/* Çizim & Kamera Sahnesi */
+.stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin: 0.25rem 1rem 0.35rem;
+  background-color: var(--bg-stage);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+}
+
+.stage.is-interactive {
+  cursor: grab;
+}
+
+.stage.is-dragging {
+  cursor: grabbing;
+}
+
+.stage.is-sketch-paper {
+  background-color: #f1f5f9;
+}
+
+.app.is-locked .stage {
+  margin-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  border-color: rgba(217, 119, 6, 0.45);
+}
+
+.camera-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 1;
+  background-color: #000000;
+  pointer-events: none;
+}
+
+.camera-video.is-mirrored {
+  transform: scaleX(-1);
+}
+
+.camera-hint,
+.gesture-hint {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  background-color: rgba(13, 15, 20, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+  font-size: 0.76rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  pointer-events: none;
+  max-width: calc(100% - 1.5rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.camera-hint {
+  top: 0.8rem;
+}
+
+.gesture-hint {
+  bottom: 0.8rem;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.gesture-hint.is-visible {
+  opacity: 1;
+}
+
+.empty-state {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem 1.5rem;
+  max-width: 280px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.15s ease;
+}
+
+.empty-state:active {
+  opacity: 0.75;
+}
+
+.empty-icon {
+  width: 48px;
+  height: 48px;
+  color: var(--text-secondary);
+  opacity: 0.7;
+  margin-bottom: 0.875rem;
+}
+
+.empty-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.375rem;
+}
+
+.empty-subtitle {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+/* Üst Üste Bindirme Katmanı (Fotoğraf veya Eskiz) */
+.overlay-layer {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center center;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+.preview-image,
+.sketch-canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+/* Hata Mesajı (Sahne içinde yüzer, sayfayı kaydırmaz) */
+.error-message {
+  position: absolute;
+  bottom: 0.75rem;
+  left: 0.75rem;
+  right: 0.75rem;
+  z-index: 5;
+  padding: 0.6rem 0.875rem;
+  border-radius: 10px;
+  background-color: rgba(28, 14, 18, 0.92);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--danger-text);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
+/* Alt Kontrol Alanı */
+.controls {
+  flex-shrink: 0;
+  padding: 0.4rem 1rem calc(0.85rem + env(safe-area-inset-bottom));
+}
+
+.controls-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 480px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Hızlı Konum / Eskiz / Döndürme / Ayna Araç Çubuğu */
+.transform-bar {
+  display: flex;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.tool-btn {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-height: 38px;
+  padding: 0.35rem 0.3rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-family: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.tool-btn-compact {
+  flex: 0.72 1 0;
+}
+
+.tool-btn-sketch {
+  flex: 1.15 1 0;
+}
+
+.tool-btn:hover {
+  background-color: var(--bg-surface-hover);
+}
+
+.tool-btn:active {
+  transform: scale(0.97);
+}
+
+.tool-btn.is-active {
+  background-color: rgba(99, 102, 241, 0.22);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.tool-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+/* Kaydırıcılar Kutusu (Sabit yükseklik: Eskiz açıldığında yan yana bölünür, kayma yapmaz) */
+.opacity-panel {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  height: 62px;
+  padding: 0 0.85rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.opacity-panel.is-split {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.slider-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.slider-group-side {
+  padding-left: 0.75rem;
+  border-left: 1px solid var(--border-subtle);
+}
+
+.opacity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  line-height: 1.2;
+  margin-bottom: 0.35rem;
+}
+
+.opacity-label {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.opacity-value {
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.opacity-slider {
+  display: block;
+  margin: 6px 0;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border-subtle);
+  outline: none;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.opacity-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+
+.opacity-slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+
+/* Buton Satırı */
+.button-row {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 48px;
+  padding: 0.7rem 0.875rem;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-family: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.15s ease, transform 0.1s ease, opacity 0.15s ease;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  flex: 1;
+  background-color: var(--accent);
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background-color: var(--accent-hover);
+}
+
+.btn-camera {
+  flex: 1;
+  background-color: var(--camera-btn);
+  color: #ffffff;
+}
+
+.btn-camera:hover {
+  background-color: var(--camera-btn-hover);
+}
+
+.btn-camera.is-active {
+  background-color: var(--camera-active);
+}
+
+.btn-camera.is-active:hover {
+  background-color: var(--camera-active-hover);
+}
+
+.btn-secondary {
+  background-color: var(--bg-surface);
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+  background-color: var(--bg-surface-hover);
+}
+
+.btn-icon-only {
+  width: 48px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.btn-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
