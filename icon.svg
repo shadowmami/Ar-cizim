@@ -1,6 +1,91 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <rect width="128" height="128" rx="28" fill="#0d0f14"/>
-  <rect x="14" y="14" width="100" height="100" rx="20" fill="#151922" stroke="#6366f1" stroke-width="4"/>
-  <path d="M38 84l18-22 14 16 12-14 14 20H38z" fill="#6366f1" fill-opacity="0.35"/>
-  <path d="M74 36l18 18-32 32H42V68l32-32z" fill="none" stroke="#f1f5f9" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <radialGradient id="bgGlow" cx="50%" cy="42%" r="62%">
+      <stop offset="0%" stop-color="#1e153b"/>
+      <stop offset="65%" stop-color="#0d101b"/>
+      <stop offset="100%" stop-color="#07090f"/>
+    </radialGradient>
+    <linearGradient id="rimGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a855f7"/>
+      <stop offset="52%" stop-color="#00f0ff"/>
+      <stop offset="100%" stop-color="#39ff14"/>
+    </linearGradient>
+    <linearGradient id="cloakGrad" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#2a1f4d"/>
+      <stop offset="55%" stop-color="#141829"/>
+      <stop offset="100%" stop-color="#0b0e18"/>
+    </linearGradient>
+    <linearGradient id="nibGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c084fc"/>
+      <stop offset="55%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#00f0ff"/>
+    </linearGradient>
+    <linearGradient id="slashGrad" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#a855f7" stop-opacity="0"/>
+      <stop offset="35%" stop-color="#00f0ff"/>
+      <stop offset="75%" stop-color="#39ff14"/>
+      <stop offset="100%" stop-color="#39ff14" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Zemin -->
+  <rect width="256" height="256" rx="56" fill="url(#bgGlow)"/>
+  <rect x="14" y="14" width="228" height="228" rx="44" fill="none" stroke="url(#rimGrad)" stroke-width="3.5" stroke-opacity="0.72"/>
+
+  <!-- Hafif Fosforlu AR Kareleme Izgarası -->
+  <g stroke="#39ff14" stroke-opacity="0.16" stroke-width="1.5">
+    <line x1="94" y1="32" x2="94" y2="224"/>
+    <line x1="162" y1="32" x2="162" y2="224"/>
+    <line x1="32" y1="94" x2="224" y2="94"/>
+    <line x1="32" y1="162" x2="224" y2="162"/>
+  </g>
+
+  <!-- AR Kamera Vizör Köşeleri -->
+  <g fill="none" stroke="#00f0ff" stroke-width="5.5" stroke-linecap="round">
+    <path d="M36 68 V44 Q36 36 44 36 H68"/>
+    <path d="M188 36 H212 Q220 36 220 44 V68"/>
+    <path d="M36 188 V212 Q36 220 44 220 H68"/>
+    <path d="M188 220 H212 Q220 220 220 212 V188"/>
+  </g>
+
+  <!-- Shadow Kapüşon / Pelerin Silüeti -->
+  <path
+    d="M128 38 L184 92 L202 138 L164 150 L128 126 L92 150 L54 138 L72 92 Z"
+    fill="url(#cloakGrad)"
+    stroke="#a855f7"
+    stroke-width="3.5"
+    stroke-linejoin="round"
+  />
+
+  <!-- Kapüşon İç Gölgesi -->
+  <path
+    d="M128 56 L166 98 L154 134 L128 120 L102 134 L90 98 Z"
+    fill="#070910"
+  />
+
+  <!-- Parlayan Keskin Anime Gözler -->
+  <polygon points="98,104 120,111 114,116 96,109" fill="#00f0ff"/>
+  <polygon points="158,104 136,111 142,116 160,109" fill="#00f0ff"/>
+
+  <!-- Çizim Kalemi Ucu (Nib) Gövdesi -->
+  <path
+    d="M128 122 L162 156 L128 216 L94 156 Z"
+    fill="url(#nibGrad)"
+    stroke="#0b0e18"
+    stroke-width="3"
+    stroke-linejoin="round"
+  />
+  <path d="M128 122 L162 156 L128 216 Z" fill="#0f172a" fill-opacity="0.26"/>
+  <line x1="128" y1="154" x2="128" y2="213" stroke="#090b12" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="128" cy="152" r="6.5" fill="#090b12" stroke="#e0f2fe" stroke-width="2"/>
+
+  <!-- Fosforlu Neon Çizim Işık İzi -->
+  <path
+    d="M58 202 Q128 228 198 192"
+    fill="none"
+    stroke="url(#slashGrad)"
+    stroke-width="5"
+    stroke-linecap="round"
+  />
+  <circle cx="128" cy="216" r="4" fill="#39ff14"/>
 </svg>

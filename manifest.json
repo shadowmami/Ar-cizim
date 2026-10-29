@@ -1,13 +1,25 @@
 {
-  "name": "AR Çizim",
+  "name": "AR Çizim • Shadow Mami",
   "short_name": "AR Çizim",
-  "description": "Fotoğrafı canlı kamera görüntüsü üzerine yarı saydam bindirerek kağıda çizim yapma uygulaması.",
+  "description": "Shadow Mami • Fotoğrafı canlı kamera görüntüsü üzerine yarı saydam bindirerek kağıda çizim yapma uygulaması.",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0d0f14",
+  "background_color": "#090b12",
   "theme_color": "#0d0f14",
   "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
     {
       "src": "icon.svg",
       "sizes": "any",
