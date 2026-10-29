@@ -412,7 +412,7 @@ body {
   pointer-events: none;
 }
 
-/* Fotoğrafa Yapışık Orantısal Kareleme Izgarası */
+/* Fotoğrafa Yapışık Orantısal Kareleme Izgarası (İnce ve Göz Yormayan Kılavuz) */
 .grid-overlay {
   position: absolute;
   left: 0;
@@ -420,56 +420,54 @@ body {
   width: 100%;
   height: 100%;
   z-index: 5;
-  border: calc(1.6px * var(--grid-line-scale, 1)) solid rgba(96, 165, 250, 0.95);
-  box-shadow:
-    0 0 0 calc(0.9px * var(--grid-line-scale, 1)) rgba(0, 0, 0, 0.7),
-    inset 0 0 0 calc(0.9px * var(--grid-line-scale, 1)) rgba(0, 0, 0, 0.7);
+  border: calc(1px * var(--grid-line-scale, 1)) solid rgba(165, 180, 252, 0.42);
+  box-shadow: 0 0 calc(1px * var(--grid-line-scale, 1)) rgba(0, 0, 0, 0.35);
   pointer-events: none;
 }
 
 .grid-line {
   position: absolute;
-  background-color: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 0 0 calc(0.8px * var(--grid-line-scale, 1)) rgba(0, 0, 0, 0.7);
+  background-color: rgba(255, 255, 255, 0.32);
+  box-shadow: 0 0 calc(1px * var(--grid-line-scale, 1)) rgba(0, 0, 0, 0.36);
   pointer-events: none;
 }
 
 .grid-line-v {
   top: 0;
   bottom: 0;
-  width: calc(1.4px * var(--grid-line-scale, 1));
+  width: calc(1px * var(--grid-line-scale, 1));
   transform: translateX(-50%);
 }
 
 .grid-line-h {
   left: 0;
   right: 0;
-  height: calc(1.4px * var(--grid-line-scale, 1));
+  height: calc(1px * var(--grid-line-scale, 1));
   transform: translateY(-50%);
 }
 
 .grid-line.is-center {
-  background-color: rgba(96, 165, 250, 0.96);
+  background-color: rgba(165, 180, 252, 0.46);
   z-index: 1;
 }
 
 .grid-center-v {
   left: 50%;
-  top: 47.2%;
-  height: 5.6%;
-  width: calc(1.5px * var(--grid-line-scale, 1));
+  top: 47.8%;
+  height: 4.4%;
+  width: calc(1px * var(--grid-line-scale, 1));
   transform: translateX(-50%);
-  background-color: rgba(96, 165, 250, 0.96);
+  background-color: rgba(165, 180, 252, 0.48);
   z-index: 1;
 }
 
 .grid-center-h {
   top: 50%;
-  left: 47.2%;
-  width: 5.6%;
-  height: calc(1.5px * var(--grid-line-scale, 1));
+  left: 47.8%;
+  width: 4.4%;
+  height: calc(1px * var(--grid-line-scale, 1));
   transform: translateY(-50%);
-  background-color: rgba(96, 165, 250, 0.96);
+  background-color: rgba(165, 180, 252, 0.48);
   z-index: 1;
 }
 
