@@ -26,14 +26,18 @@ const colorDotButtons = Array.from(sketchColorBar.querySelectorAll('.color-dot')
 const gestureHint = document.getElementById('gestureHint');
 const emptyState = document.getElementById('emptyState');
 const overlayLayer = document.getElementById('overlayLayer');
+const mediaStage = document.getElementById('mediaStage');
 const previewImage = document.getElementById('previewImage');
 const sketchCanvas = document.getElementById('sketchCanvas');
 const sketchCtx = sketchCanvas.getContext('2d');
+const gridOverlay = document.getElementById('gridOverlay');
 const fileNameBadge = document.getElementById('fileName');
 const errorMessage = document.getElementById('errorMessage');
 
 const transformBar = document.getElementById('transformBar');
 const sketchBtn = document.getElementById('sketchBtn');
+const gridBtn = document.getElementById('gridBtn');
+const gridBtnLabel = document.getElementById('gridBtnLabel');
 const zoomOutBtn = document.getElementById('zoomOutBtn');
 const zoomInBtn = document.getElementById('zoomInBtn');
 const rotateBtn = document.getElementById('rotateBtn');
@@ -57,6 +61,8 @@ const MAX_SKETCH_DIM = 1400;
 const MIN_SCALE = 0.2;
 const MAX_SCALE = 6;
 const BUTTON_ZOOM_FACTOR = 1.2;
+const GRID_STEPS = [0, 3, 4, 6];
+const SVG_NS = 'http://www.w3.org/2000/svg';
 
 const SKETCH_PALETTES = {
   darkOnCamera: [15, 20, 30],
@@ -80,6 +86,8 @@ let isSketchMode = false;
 let sketchDetail = DEFAULT_SKETCH_DETAIL;
 let sketchColorKey = 'dark';
 let sketchCache = null;
+let gridDivisions = 0;
+let lastMediaBox = { w: 0, h: 0 };
 let hasUserAdjustedOpacity = false;
 let isLocked = false;
 let wakeLockSentinel = null;
@@ -140,7 +148,7 @@ function setOpacity(percent) {
   const clamped = clamp(Math.round(Number(percent) || 0), 0, 100);
   opacitySlider.value = String(clamped);
   opacityValue.textContent = `%${clamped}`;
-  overlayLayer.style.opacity = String(clamped / 100);
+  overlayLayer.style.setProperty('--media-opacity', String(clamped / 100));
   updateSliderFill(opacitySlider);
 }
 
@@ -417,7 +425,7 @@ function setSketchDetail(value) {
 }
 
 function setSketchColor(colorKey) {
-  if (! colorKey) {
+  if (!colorKey) {
     return;
   }
   sketchColorKey = colorKey;
@@ -443,6 +451,97 @@ function toggleSketchMode() {
 
   applyAutoOpacity();
   syncStageVisibility();
+}
+
+/* --- Fotoğrafa Yapışık Orantısal Kareleme Izgarası (3×3 / 4×4 / 6×6) --- */
+function createSvgEl(tag, attrs = {}) {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const [key, val] of Object.entries(attrs)) {
+    el.setAttribute(key, String(val));
+  }
+  return el;
+}
+
+function syncGridGeometry() {
+  if (!hasImage || !previewImage.naturalWidth || !previewImage.naturalHeight) {
+    return;
+  }
+
+  const boxW = lastMediaBox.w > 0 ? lastMediaBox.w : mediaStage.clientWidth;
+  const boxH = lastMediaBox.h > 0 ? lastMediaBox.h : mediaStage.clientHeight;
+  if (boxW <= 0 || boxH <= 0) {
+    return;
+  }
+
+  const imgW = previewImage.naturalWidth;
+  const imgH = previewImage.naturalHeight;
+  const fitScale = Math.min(boxW / imgW, boxH / imgH);
+  const renderW = imgW * fitScale;
+  const renderH = imgH * fitScale;
+  const left = (boxW - renderW) / 2;
+  const top = (boxH - renderH) / 2;
+
+  gridOverlay.style.width = `${renderW}px`;
+  gridOverlay.style.height = `${renderH}px`;
+  gridOverlay.style.left = `${left}px`;
+  gridOverlay.style.top = `${top}px`;
+}
+
+function renderGridSVG() {
+  gridOverlay.replaceChildren();
+  if (gridDivisions <= 0) {
+    return;
+  }
+
+  const casingGroup = createSvgEl('g', { class: 'grid-casing' });
+  const linesGroup = createSvgEl('g', { class: 'grid-lines' });
+  const accentGroup = createSvgEl('g', { class: 'grid-accent' });
+
+  const frameAttrs = {
+    x: 0,
+    y: 0,
+    width: 100,
+    height: 100,
+    'vector-effect': 'non-scaling-stroke'
+  };
+  casingGroup.appendChild(createSvgEl('rect', frameAttrs));
+  accentGroup.appendChild(createSvgEl('rect', frameAttrs));
+
+  function addGridLine(x1, y1, x2, y2, isAccent) {
+    const attrs = { x1, y1, x2, y2, 'vector-effect': 'non-scaling-stroke' };
+    casingGroup.appendChild(createSvgEl('line', attrs));
+    (isAccent ? accentGroup : linesGroup).appendChild(createSvgEl('line', attrs));
+  }
+
+  for (let i = 1; i < gridDivisions; i++) {
+    const pos = Number(((i * 100) / gridDivisions).toFixed(4));
+    const isCenterAxis = i * 2 === gridDivisions;
+    addGridLine(pos, 0, pos, 100, isCenterAxis);
+    addGridLine(0, pos, 100, pos, isCenterAxis);
+  }
+
+  // 3×3 gibi tek sayılı bölmelerde tam merkez noktasını gösteren zarif artı (+) işareti
+  if (gridDivisions % 2 === 1) {
+    addGridLine(47.5, 50, 52.5, 50, true);
+    addGridLine(50, 47.5, 50, 52.5, true);
+  }
+
+  gridOverlay.append(casingGroup, linesGroup, accentGroup);
+}
+
+function cycleGrid() {
+  if (!hasImage || isLocked) {
+    return;
+  }
+  hideError();
+  dismissGestureHint();
+
+  const currentIndex = GRID_STEPS.indexOf(gridDivisions);
+  gridDivisions = GRID_STEPS[(currentIndex + 1) % GRID_STEPS.length];
+
+  renderGridSVG();
+  syncStageVisibility();
+  syncGridGeometry();
 }
 
 /* --- Tam Ekran (Fullscreen) Desteği --- */
@@ -609,6 +708,13 @@ function syncStageVisibility() {
   sketchDetailGroup.hidden = !hasImage || !isSketchMode;
   opacityPanel.classList.toggle('is-split', hasImage && isSketchMode);
 
+  // Kareleme ızgarası kilit modundayken de görünür kalır (çizim referansı için)
+  const isGridActive = hasImage && gridDivisions > 0;
+  gridOverlay.hidden = !isGridActive;
+  gridBtn.classList.toggle('is-active', gridDivisions > 0);
+  gridBtn.setAttribute('aria-pressed', String(gridDivisions > 0));
+  gridBtnLabel.textContent = gridDivisions > 0 ? `${gridDivisions}×${gridDivisions}` : 'Izgara';
+
   lockBtn.hidden = !hasImage;
   lockBtn.classList.toggle('is-locked', isLocked);
   lockBtn.setAttribute('aria-pressed', String(isLocked));
@@ -668,6 +774,8 @@ function loadPreview(file) {
 
     applyAutoOpacity();
     syncStageVisibility();
+    renderGridSVG();
+    syncGridGeometry();
     showGestureHintOnce();
   };
 
@@ -698,6 +806,10 @@ function clearPreview() {
   sketchCanvas.width = 1;
   sketchCanvas.height = 1;
   setSketchDetail(DEFAULT_SKETCH_DETAIL);
+
+  gridDivisions = 0;
+  lastMediaBox = { w: 0, h: 0 };
+  renderGridSVG();
 
   isLocked = false;
   hasUserAdjustedOpacity = false;
@@ -1062,6 +1174,7 @@ flipCameraBtn.addEventListener('click', flipCamera);
 torchBtn.addEventListener('click', toggleTorch);
 fullscreenBtn.addEventListener('click', toggleFullscreen);
 sketchBtn.addEventListener('click', toggleSketchMode);
+gridBtn.addEventListener('click', cycleGrid);
 
 colorDotButtons.forEach((btn) => {
   btn.addEventListener('click', (event) => {
@@ -1107,6 +1220,21 @@ opacitySlider.addEventListener('input', (event) => {
   hasUserAdjustedOpacity = true;
   setOpacity(event.target.value);
 });
+
+if ('ResizeObserver' in window) {
+  const mediaResizeObserver = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      lastMediaBox = {
+        w: entry.contentRect.width,
+        h: entry.contentRect.height
+      };
+    }
+    syncGridGeometry();
+  });
+  mediaResizeObserver.observe(mediaStage);
+} else {
+  window.addEventListener('resize', syncGridGeometry);
+}
 
 document.addEventListener('fullscreenchange', syncFullscreenUI);
 document.addEventListener('webkitfullscreenchange', syncFullscreenUI);

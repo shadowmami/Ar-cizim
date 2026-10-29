@@ -386,8 +386,17 @@ body {
   align-items: center;
   justify-content: center;
   transform-origin: center center;
-  will-change: transform, opacity;
+  will-change: transform;
   pointer-events: none;
+}
+
+.media-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .preview-image,
@@ -395,9 +404,45 @@ body {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  opacity: var(--media-opacity, 1);
+  will-change: opacity;
   user-select: none;
   -webkit-user-drag: none;
   pointer-events: none;
+}
+
+/* Fotoğrafa Yapışık Orantısal Kareleme Izgarası */
+.grid-overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.grid-overlay rect,
+.grid-overlay line {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  shape-rendering: geometricPrecision;
+}
+
+.grid-casing rect,
+.grid-casing line {
+  stroke: rgba(10, 14, 23, 0.55);
+  stroke-width: 2.4px;
+}
+
+.grid-lines line {
+  stroke: rgba(255, 255, 255, 0.84);
+  stroke-width: 1.05px;
+}
+
+.grid-accent rect,
+.grid-accent line {
+  stroke: rgba(147, 162, 255, 0.94);
+  stroke-width: 1.25px;
 }
 
 /* Hata Mesajı */
@@ -453,7 +498,7 @@ body {
   width: 100%;
 }
 
-/* Hızlı Konum / Eskiz / Döndürme / Ayna Araç Çubuğu */
+/* Hızlı Konum / Eskiz / Izgara / Döndürme / Ayna Araç Çubuğu */
 .transform-bar {
   display: flex;
   gap: 0.35rem;
@@ -462,12 +507,13 @@ body {
 
 .tool-btn {
   flex: 1 1 0;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.25rem;
   min-height: 38px;
-  padding: 0.35rem 0.3rem;
+  padding: 0.35rem 0.28rem;
   border-radius: 10px;
   border: 1px solid var(--border-subtle);
   background-color: var(--bg-surface);
@@ -489,6 +535,12 @@ body {
 
 .tool-btn-sketch {
   flex: 1.15 1 0;
+}
+
+@media (max-width: 480px) {
+  .tool-btn-zoom {
+    display: none;
+  }
 }
 
 .tool-btn:hover {
