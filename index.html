@@ -11,7 +11,7 @@
   <title>AR Çizim</title>
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
   <div class="app" id="appRoot">
@@ -140,14 +140,7 @@
         <div id="mediaStage" class="media-stage">
           <img id="previewImage" class="preview-image" alt="Yüklenen fotoğraf önizlemesi">
           <canvas id="sketchCanvas" class="sketch-canvas" hidden></canvas>
-          <svg
-            id="gridOverlay"
-            class="grid-overlay"
-            viewBox="0 0 100 100"
-            preserveAspectRatio="none"
-            aria-hidden="true"
-            hidden
-          ></svg>
+          <div id="gridOverlay" class="grid-overlay" aria-hidden="true" hidden></div>
         </div>
       </div>
 
@@ -314,6 +307,6 @@
     </footer>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>

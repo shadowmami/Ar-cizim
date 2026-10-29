@@ -62,7 +62,6 @@ const MIN_SCALE = 0.2;
 const MAX_SCALE = 6;
 const BUTTON_ZOOM_FACTOR = 1.2;
 const GRID_STEPS = [0, 3, 4, 6];
-const SVG_NS = 'http://www.w3.org/2000/svg';
 
 const SKETCH_PALETTES = {
   darkOnCamera: [15, 20, 30],
@@ -82,6 +81,8 @@ let currentFacingMode = 'environment';
 let isCameraLoading = false;
 let isTorchOn = false;
 let hasImage = false;
+let imageNaturalWidth = 0;
+let imageNaturalHeight = 0;
 let isSketchMode = false;
 let sketchDetail = DEFAULT_SKETCH_DETAIL;
 let sketchColorKey = 'dark';
@@ -107,6 +108,17 @@ let mouseDragState = null;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function setElementHidden(el, shouldHide) {
+  if (!el) {
+    return;
+  }
+  if (shouldHide) {
+    el.setAttribute('hidden', '');
+  } else {
+    el.removeAttribute('hidden');
+  }
 }
 
 function normalizeAngle(angle) {
@@ -175,7 +187,10 @@ function applyTransform() {
   clampPosition();
   const scaleX = transform.flipX ? -transform.scale : transform.scale;
   const scaleY = transform.scale;
+  const lineScale = clamp(1 / transform.scale, 0.5, 1.35);
+
   overlayLayer.style.transform = `translate3d(${transform.x}px, ${transform.y}px, 0) rotate(${transform.rotation}deg) scale(${scaleX}, ${scaleY})`;
+  overlayLayer.style.setProperty('--grid-line-scale', lineScale.toFixed(4));
 
   mirrorBtn.classList.toggle('is-active', transform.flipX);
   mirrorBtn.setAttribute('aria-pressed', String(transform.flipX));
@@ -451,30 +466,35 @@ function toggleSketchMode() {
 
   applyAutoOpacity();
   syncStageVisibility();
+  syncGridGeometry();
 }
 
 /* --- Fotoğrafa Yapışık Orantısal Kareleme Izgarası (3×3 / 4×4 / 6×6) --- */
-function createSvgEl(tag, attrs = {}) {
-  const el = document.createElementNS(SVG_NS, tag);
-  for (const [key, val] of Object.entries(attrs)) {
-    el.setAttribute(key, String(val));
-  }
-  return el;
-}
-
 function syncGridGeometry() {
-  if (!hasImage || !previewImage.naturalWidth || !previewImage.naturalHeight) {
+  if (!hasImage) {
     return;
   }
 
-  const boxW = lastMediaBox.w > 0 ? lastMediaBox.w : mediaStage.clientWidth;
-  const boxH = lastMediaBox.h > 0 ? lastMediaBox.h : mediaStage.clientHeight;
+  const imgW = imageNaturalWidth || previewImage.naturalWidth || sketchCanvas.width;
+  const imgH = imageNaturalHeight || previewImage.naturalHeight || sketchCanvas.height;
+  if (!imgW || !imgH) {
+    return;
+  }
+
+  const liveW = mediaStage.clientWidth;
+  const liveH = mediaStage.clientHeight;
+  const useSubpixel =
+    lastMediaBox.w > 0 &&
+    lastMediaBox.h > 0 &&
+    Math.abs(lastMediaBox.w - liveW) <= 2 &&
+    Math.abs(lastMediaBox.h - liveH) <= 2;
+
+  const boxW = useSubpixel ? lastMediaBox.w : liveW;
+  const boxH = useSubpixel ? lastMediaBox.h : liveH;
   if (boxW <= 0 || boxH <= 0) {
     return;
   }
 
-  const imgW = previewImage.naturalWidth;
-  const imgH = previewImage.naturalHeight;
   const fitScale = Math.min(boxW / imgW, boxH / imgH);
   const renderW = imgW * fitScale;
   const renderH = imgH * fitScale;
@@ -487,46 +507,43 @@ function syncGridGeometry() {
   gridOverlay.style.top = `${top}px`;
 }
 
-function renderGridSVG() {
+function renderGridOverlay() {
   gridOverlay.replaceChildren();
   if (gridDivisions <= 0) {
     return;
   }
 
-  const casingGroup = createSvgEl('g', { class: 'grid-casing' });
-  const linesGroup = createSvgEl('g', { class: 'grid-lines' });
-  const accentGroup = createSvgEl('g', { class: 'grid-accent' });
-
-  const frameAttrs = {
-    x: 0,
-    y: 0,
-    width: 100,
-    height: 100,
-    'vector-effect': 'non-scaling-stroke'
-  };
-  casingGroup.appendChild(createSvgEl('rect', frameAttrs));
-  accentGroup.appendChild(createSvgEl('rect', frameAttrs));
-
-  function addGridLine(x1, y1, x2, y2, isAccent) {
-    const attrs = { x1, y1, x2, y2, 'vector-effect': 'non-scaling-stroke' };
-    casingGroup.appendChild(createSvgEl('line', attrs));
-    (isAccent ? accentGroup : linesGroup).appendChild(createSvgEl('line', attrs));
-  }
+  const fragment = document.createDocumentFragment();
 
   for (let i = 1; i < gridDivisions; i++) {
-    const pos = Number(((i * 100) / gridDivisions).toFixed(4));
+    const pct = `${((i * 100) / gridDivisions).toFixed(4)}%`;
     const isCenterAxis = i * 2 === gridDivisions;
-    addGridLine(pos, 0, pos, 100, isCenterAxis);
-    addGridLine(0, pos, 100, pos, isCenterAxis);
+
+    const vLine = document.createElement('span');
+    vLine.className = isCenterAxis
+      ? 'grid-line grid-line-v is-center'
+      : 'grid-line grid-line-v';
+    vLine.style.left = pct;
+
+    const hLine = document.createElement('span');
+    hLine.className = isCenterAxis
+      ? 'grid-line grid-line-h is-center'
+      : 'grid-line grid-line-h';
+    hLine.style.top = pct;
+
+    fragment.append(vLine, hLine);
   }
 
   // 3×3 gibi tek sayılı bölmelerde tam merkez noktasını gösteren zarif artı (+) işareti
   if (gridDivisions % 2 === 1) {
-    addGridLine(47.5, 50, 52.5, 50, true);
-    addGridLine(50, 47.5, 50, 52.5, true);
+    const centerV = document.createElement('span');
+    centerV.className = 'grid-line grid-center-v';
+    const centerH = document.createElement('span');
+    centerH.className = 'grid-line grid-center-h';
+    fragment.append(centerV, centerH);
   }
 
-  gridOverlay.append(casingGroup, linesGroup, accentGroup);
+  gridOverlay.appendChild(fragment);
 }
 
 function cycleGrid() {
@@ -539,9 +556,10 @@ function cycleGrid() {
   const currentIndex = GRID_STEPS.indexOf(gridDivisions);
   gridDivisions = GRID_STEPS[(currentIndex + 1) % GRID_STEPS.length];
 
-  renderGridSVG();
+  renderGridOverlay();
   syncStageVisibility();
   syncGridGeometry();
+  requestAnimationFrame(syncGridGeometry);
 }
 
 /* --- Tam Ekran (Fullscreen) Desteği --- */
@@ -551,14 +569,14 @@ function isCurrentlyFullscreen() {
 
 function syncFullscreenUI() {
   if (!canFullscreen) {
-    fullscreenBtn.hidden = true;
+    setElementHidden(fullscreenBtn, true);
     return;
   }
-  fullscreenBtn.hidden = false;
+  setElementHidden(fullscreenBtn, false);
   const active = isCurrentlyFullscreen();
   fullscreenBtn.setAttribute('aria-pressed', String(active));
-  fsIconEnter.hidden = active;
-  fsIconExit.hidden = !active;
+  setElementHidden(fsIconEnter, active);
+  setElementHidden(fsIconExit, !active);
 }
 
 async function toggleFullscreen() {
@@ -710,17 +728,17 @@ function syncStageVisibility() {
 
   // Kareleme ızgarası kilit modundayken de görünür kalır (çizim referansı için)
   const isGridActive = hasImage && gridDivisions > 0;
-  gridOverlay.hidden = !isGridActive;
+  setElementHidden(gridOverlay, !isGridActive);
   gridBtn.classList.toggle('is-active', gridDivisions > 0);
   gridBtn.setAttribute('aria-pressed', String(gridDivisions > 0));
   gridBtnLabel.textContent = gridDivisions > 0 ? `${gridDivisions}×${gridDivisions}` : 'Izgara';
 
-  lockBtn.hidden = !hasImage;
+  setElementHidden(lockBtn, !hasImage);
   lockBtn.classList.toggle('is-locked', isLocked);
   lockBtn.setAttribute('aria-pressed', String(isLocked));
   lockBtnLabel.textContent = isLocked ? 'Kilitli • Aç' : 'Kilitle';
-  lockIconUnlocked.hidden = isLocked;
-  lockIconLocked.hidden = !isLocked;
+  setElementHidden(lockIconUnlocked, isLocked);
+  setElementHidden(lockIconLocked, !isLocked);
 
   fileNameBadge.hidden = !hasImage || isLocked;
   // Flaş kilit modundayken de açık kalır (çizim ortasında kağıdı aydınlatabilmek için)
@@ -763,6 +781,8 @@ function loadPreview(file) {
     }
     currentObjectUrl = nextObjectUrl;
     hasImage = true;
+    imageNaturalWidth = previewImage.naturalWidth;
+    imageNaturalHeight = previewImage.naturalHeight;
     sketchCache = null;
 
     fileNameBadge.textContent = file.name;
@@ -774,8 +794,9 @@ function loadPreview(file) {
 
     applyAutoOpacity();
     syncStageVisibility();
-    renderGridSVG();
+    renderGridOverlay();
     syncGridGeometry();
+    requestAnimationFrame(syncGridGeometry);
     showGestureHintOnce();
   };
 
@@ -801,6 +822,8 @@ function clearPreview() {
   }
 
   hasImage = false;
+  imageNaturalWidth = 0;
+  imageNaturalHeight = 0;
   isSketchMode = false;
   sketchCache = null;
   sketchCanvas.width = 1;
@@ -809,7 +832,7 @@ function clearPreview() {
 
   gridDivisions = 0;
   lastMediaBox = { w: 0, h: 0 };
-  renderGridSVG();
+  renderGridOverlay();
 
   isLocked = false;
   hasUserAdjustedOpacity = false;
@@ -1232,12 +1255,18 @@ if ('ResizeObserver' in window) {
     syncGridGeometry();
   });
   mediaResizeObserver.observe(mediaStage);
-} else {
-  window.addEventListener('resize', syncGridGeometry);
 }
 
-document.addEventListener('fullscreenchange', syncFullscreenUI);
-document.addEventListener('webkitfullscreenchange', syncFullscreenUI);
+window.addEventListener('resize', syncGridGeometry);
+
+document.addEventListener('fullscreenchange', () => {
+  syncFullscreenUI();
+  syncGridGeometry();
+});
+document.addEventListener('webkitfullscreenchange', () => {
+  syncFullscreenUI();
+  syncGridGeometry();
+});
 
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
